@@ -1,0 +1,4 @@
+{
+    "error": "Invalid JSON from model",
+    "raw": "```json\n{\n  \"body_type\": \"lean and athletic build with a well-proportioned frame\",\n  \"style_vibes\": [\"casual\", \"sporty\", \"smart-casual\"],\n  \"recommended_clothes\": [\"fitted t-shirts\", \"slim-fit jeans\", \"chinos\", \"lightweight jackets\", \" sneakers\"],\n  \"color_palette\": [\"#4A90E2\", \"#50E3C2\", \"#F5A623\", \"#7ED321\", \"#D0021B\"],\n  \"keywords\": [\"athletic\", \"proportioned\", \"modern\", \"versatile\", \"active\"]\n}\n```"
+}
