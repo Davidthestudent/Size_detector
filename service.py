@@ -1,66 +1,89 @@
-import json
 import time
 import uuid
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 import main
+import webcolors
 from pydantic import BaseModel, EmailStr, HttpUrl
 from typing import Dict, Optional, List, Literal, Any
-import webcolors
+from database import upsert_user, list_users, delete_user, get_user_by_public_id
+from datetime import date
+
+app = FastAPI()
 
 
+# ---------------- Models ----------------
 class SizeInput(BaseModel):
     values: Dict[str, float]  # e.g. {"bust": 92, "waist": 76, "hips": 98}
     unit_system: Literal["EU", "US"] = "EU"  # what units the user entered (EU=cm, US=in)
 
 
-app = FastAPI()
-
-
-class Customerdata(BaseModel):
+class UserIn(BaseModel):
     name: str
-    age: int
-    gender: str
-    height: float
-    weight: float
-    email: Optional[EmailStr] = None
-    caption: Optional[str] = None
+    email: EmailStr
+    height: int | None = None
+    weight: float | None = None
+    gender: str | None = None
+    birthdate: date | None = None
 
 
-DB: Dict[int, Customerdata] = {}
+class SizeDetectionRequest(BaseModel):
+    link: HttpUrl | str
+    size_type: Literal["EU", "US"] = "EU"
+    brand: Optional[str] = None
 
 
-@app.get('/get_info')
-def get_info(
-        client_id: int,
-        name: str,
-        age: int,
-        gender: str,
-        height: int,
-        weight: int,
-        email: Optional[str] = None
-):
-    data = Customerdata(name=name, age=age, gender=gender, height=height, weight=weight, email=email)
-    DB[client_id] = data
-    return {"client_id": client_id, "name": name, "age": age, "gender": gender, "height": height, "weight": weight}
+class SizeDetectionResponse(BaseModel):
+    token: str
+    unit_system: Literal["EU", "US"]
+    needed_measurements: List[str]
+    short_instructions: List[str]
+
+
+class GetParamsRequest(BaseModel):
+    token: str
+    unit_system: Literal["EU", "US"]
+    values: Dict[str, float]
+
+
+class BestSizeResponse(BaseModel):
+    best_size: Any
+    echo: Dict[str, float]
+    unit_system: Literal["EU", "US"]
+
+
+@app.post('/users')
+def create_or_update_user(body: UserIn):
+    return upsert_user(name=body.name,
+                       email=body.email,
+                       height=body.height,
+                       weight=body.weight,
+                       gender=body.gender,
+                       date_of_birth=body.birthdate)
 
 
 @app.post('/get_image_and_description')
-async def get_image_and_description(client_id: int, file: UploadFile = File(...)):
+async def get_image_and_description(client_id: str = Form(),
+                                    height: int = Form(),
+                                    weight: float = Form(),
+                                    gender: str = Form(),
+                                    file: UploadFile = File(...)):
     if not file or not file.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail='File type not supported')
 
-    data = DB.get(client_id)
+    data = get_user_by_public_id(client_id)
     if not data:
         raise HTTPException(status_code=404, detail='Client not found. Call /get_info first.')
 
     raw = await file.read()
     caption = main.image_description(raw)
-    DB[client_id].caption = caption
 
-    type_fig = main.calculate_type_fig(caption, data.height, data.weight, data.gender)
+    type_fig = main.calculate_type_fig(
+        caption, height, weight, gender
+    )
     return {"caption": caption, "Type_fig": read_advice(type_fig)}
 
 
+# --------Help_functions--------
 def hex_to_color(hex: str):
     try:
         return webcolors.hex_to_name(hex)
@@ -117,33 +140,6 @@ def _load_plan(token: str) -> Dict[str, Any]:
     return item["plan"]
 
 
-# ---------------- Models ----------------
-class SizeDetectionRequest(BaseModel):
-    link: HttpUrl | str
-    size_type: Literal["EU", "US"] = "EU"  # какую систему мер ожидаем от пользователя
-    brand: Optional[str] = None
-
-
-class SizeDetectionResponse(BaseModel):
-    token: str
-    unit_system: Literal["EU", "US"]
-    needed_measurements: List[str]
-    short_instructions: List[str]
-
-
-class GetParamsRequest(BaseModel):
-    token: str
-    unit_system: Literal["EU", "US"]  # в какой системе прислал пользователь (EU=cm, US=in)
-    values: Dict[str, float]  # {"bust": 92, "waist": 76, "hips": 98}
-
-
-class BestSizeResponse(BaseModel):
-    best_size: Any
-    echo: Dict[str, float]
-    unit_system: Literal["EU", "US"]
-
-
-# ---------------- Helpers ----------------
 def _norm_key(s: str) -> str:
     return s.strip().lower().replace(" ", "_")
 
@@ -208,7 +204,7 @@ def size_detection(payload: SizeDetectionRequest):
     Шаг 1: получаем план от LLM, нормализуем, сохраняем по token и возвращаем,
     что именно нужно ввести пользователю.
     """
-    ai_result = main.ai_size_detector(payload.link, payload.size_type, payload.brand)  # <- твоя функция
+    ai_result = main.ai_size_detector(payload.link, payload.size_type, payload.brand)
 
     plan = _normalize_plan(ai_result, payload.size_type)
     token = _save_plan(plan)
@@ -230,24 +226,17 @@ def get_params(body: GetParamsRequest):
     plan = _load_plan(body.token)
 
     needed = plan["needed_measurements"]
-    # нормализуем ключи, приводим к float
     incoming = {_norm_key(k): float(v) for k, v in body.values.items()}
-
-    # проверяем, что всё нужное присутствует
     missing = [m for m in needed if m not in incoming]
     if missing:
         raise HTTPException(400, detail=f"Missing measurements: {', '.join(missing)}")
 
-    # оставляем только нужные и в правильном порядке
     ordered_vals = {m: incoming[m] for m in needed}
 
-    # конвертация единиц к канонической системе плана
     values_canon = _convert_units(ordered_vals, body.unit_system, plan["unit_system"])
 
-    # символ единиц для твоей функции
     unit_symbol = _unit_symbol(plan["unit_system"])
 
-    # подбор размера
     best = main.find_best_size(plan["size_table"], values_canon, unit_symbol)
 
     return BestSizeResponse(

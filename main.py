@@ -7,6 +7,7 @@ from io import BytesIO
 
 num = 0
 path = './checkpoint-250'
+API_KEY = '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'
 
 
 def image_description(raw):
@@ -109,30 +110,34 @@ def find_best_size(size_table, user_params, type_of_measure):
     return f'The best size for you is: {best_size} {size_chart}'
 
 
-def pars_json(t:str):
+def pars_json(t: str):
     t = t.strip()
     t = re.sub(r'^```(?:json)?\s*', '', t)
     t = re.sub(r'\s*```$', '', t)
     return json.loads(t)
+
+
 def ai_size_detector(link, size_type='EU', brand='Some_brand'):
     if size_type == 'EU':
         measure_type = 'cm'
     else:
         measure_type = 'in'
     client = OpenAI(
-        api_key='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')
+        api_key=API_KEY)
     prompt = (
         f'Analyse the clothe with the following link: {link} from {brand} check only for {size_type} sizes\n'
         f'Ask for measures which are needed to determine the size of the clothes\n'
-        f'Provide your answer in structured JSON format. DO NOT add any comments. You should get all the information and keep only the necessary one which is listed in the official chart tables.'
+        f'Provide your answer in structured JSON format. DO NOT add any comments. You should get all the information '
+        f'and keep only the necessary one which is listed in the official chart tables.'
         f'In the following form:'
         " f\"Needed_measurements\": \"Send a list of measurements that are needed e.g hips,brest, etc.\",\n"
         f'\"Short_instructions\":  ["How to measure needed_measurement_1 ...","How to measure needed_measurement_2 '
         f'...","..."],,\n'
         f'\"Size_table\" :[\" For each size get the approximate measurement for each size of needed measurements and '
         f'represent it as a dict. It should have the following structure:  ""{size_type}": {{'
-        f'"Size_value": {{"bust": "measurement in {measure_type} without word and return it as a number", "waist": "...", "hips": "..."}},'
-        f'"Size_value":  {{"bust": "measurement in {measure_type} without word and return it as a number", "waist": "...", "hips": "..."}}'
+        f'"Size_value": {{"needed_measure": "measurement in {measure_type} without word and return it as a number", '
+        f'example: "waist",length of the feet,etc:'
+        f'"...", "hips": "..."}},'
         f'}},'
     )
 
@@ -150,9 +155,7 @@ def ai_size_detector(link, size_type='EU', brand='Some_brand'):
 
 if __name__ == '__main__':
     tests = [
-       'https://www.zara.com/at/de/soft-bomberjacke-p03046264.html?v1=485598703'
-
-
+        'https://www.zara.com/at/de/soft-bomberjacke-p03046264.html?v1=485598703'
     ]
     for link in tests:
         print(ai_size_detector(link))
