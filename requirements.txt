@@ -9,3 +9,4 @@ openai>=1.40.0
 transformers
 pillow>=10.0.0
 email-validator
+torch==2.4.1+cpu
