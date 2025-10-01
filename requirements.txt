@@ -7,4 +7,4 @@ requests
 webcolors
 openai>=1.40.0
 transformers
-PIL
+pillow>=10.0.0
