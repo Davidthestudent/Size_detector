@@ -5,7 +5,7 @@ from datetime import date
 API_BASE = st.secrets.get("API_BASE",'https://size-detector.onrender.com')
 
 
-def api_call(path: str, method="post", params=None, json=None, data=None, files=None, timeout=60):
+def api_call(path: str, method="post", params=None, json=None, data=None, files=None, timeout=180):
     url = f"{API_BASE.rstrip('/')}/{path.lstrip('/')}"
     try:
         r = requests.request(method.upper(), url, params=params, json=json, data=data, files=files, timeout=timeout)
