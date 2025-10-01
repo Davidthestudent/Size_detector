@@ -6,3 +6,8 @@ sqlalchemy
 requests
 webcolors
 openai>=1.40.0
+transformers
+PIL
+io
+uuid
+streamlit
