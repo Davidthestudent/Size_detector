@@ -7,6 +7,3 @@ requests
 webcolors
 openai>=1.40.0
 transformers
-io
-uuid
-streamlit
