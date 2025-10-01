@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 from datetime import date
 
-API_BASE = st.secrets["API_BASE"]
+API_BASE = st.secrets.get("API_BASE",'https://size-detector.onrender.com')
 
 
 def api_call(path: str, method="post", params=None, json=None, data=None, files=None, timeout=60):
