@@ -8,3 +8,4 @@ webcolors
 openai>=1.40.0
 transformers
 pillow>=10.0.0
+email-validator
