@@ -19,7 +19,7 @@ def image_description(raw):
         pil = raw.convert("RGB")
     else:
         raise TypeError("img must be in bytes | str (path) | PIL.Image.Image")
-    model = BlipForConditionalGeneration.from_pretrained(path)
+    model = BlipForConditionalGeneration.from_pretrained(path, local_files_only=True)
     processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
     inputs = processor(images=pil, return_tensors="pt")
 
